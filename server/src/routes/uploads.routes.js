@@ -6,8 +6,14 @@ const { ok, asyncHandler } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
-const dir = path.join(__dirname, '..', '..', 'uploads');
-fs.mkdirSync(dir, { recursive: true });
+// Serverless platforms (Vercel/Lambda) ship a read-only app filesystem; /tmp is
+// the only writable location and is ephemeral — fine for demo attachments.
+const dir = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
+try {
+  fs.mkdirSync(dir, { recursive: true });
+} catch {
+  console.warn(`[uploads] could not create dir ${dir} (read-only FS?) — uploads will fail gracefully`);
+}
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, dir),

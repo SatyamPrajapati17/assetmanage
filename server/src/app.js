@@ -9,7 +9,21 @@ const routes = require('./routes');
 function createApp() {
   const app = express();
 
-  app.use(cors({ origin: env.clientOrigin, credentials: true }));
+  // CLIENT_ORIGIN: comma-separated allow-list, or '*' to reflect any origin
+  // (public demo API — auth is via Bearer tokens, not cookies).
+  const allowedOrigins = String(env.clientOrigin || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  app.use(
+    cors({
+      origin:
+        allowedOrigins.includes('*') || allowedOrigins.length === 0
+          ? true
+          : (origin, cb) => cb(null, !origin || allowedOrigins.includes(origin)),
+      credentials: true,
+    })
+  );
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
   if (env.nodeEnv !== 'test') app.use(morgan('dev'));
@@ -20,6 +34,9 @@ function createApp() {
   app.get('/health', (_req, res) => res.json({ success: true, data: { status: 'ok' } }));
 
   app.use('/api/v1', routes);
+  // Fallback mount: some hosting/rewrite setups strip the /api/v1 prefix before
+  // the request reaches us — this keeps both shapes working.
+  app.use('/', routes);
 
   // 404 for unknown API routes
   app.use((req, res) => {
