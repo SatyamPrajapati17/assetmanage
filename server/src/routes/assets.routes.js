@@ -169,8 +169,13 @@ function uploadMiddleware() {
   const multer = require('multer');
   const path = require('path');
   const fs = require('fs');
-  const dir = path.join(__dirname, '..', '..', 'uploads');
-  fs.mkdirSync(dir, { recursive: true });
+  // Serverless-safe: honor UPLOAD_DIR (/tmp is the only writable dir on Lambda).
+  const dir = process.env.UPLOAD_DIR || path.join(__dirname, '..', '..', 'uploads');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    console.warn(`[uploads] could not create dir ${dir} — upload requests will fail gracefully`);
+  }
   const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, dir),
     filename: (_req, file, cb) => {
